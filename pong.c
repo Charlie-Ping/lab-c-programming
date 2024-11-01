@@ -136,7 +136,7 @@ void update(Game *game) {
     if (ball->x <= 1) {
         game->scb.right++;
         goto refresh;
-    } else if (ball->y >= game->width) {
+    } else if (ball->x >= game->width) {
         game->scb.left++;
         goto refresh;
     }
