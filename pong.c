@@ -79,7 +79,7 @@ void draw_ball(Ball ball) {
 void draw_scoreboard(Scoreboard scb) {
     mvprintw(HEIGHT + 2, 0, "Team 1: %d, Team 2: %d", scb.left, scb.right);
 }
-// 绘制屏幕
+
 void draw(Game game) {
     clear();
     draw_screen_edge(game.width, game.height);
@@ -92,7 +92,7 @@ void draw(Game game) {
     refresh();
 }
 
-// 处理用户输入
+
 void input(Game *game) {
     int ch = getch();
     if (ch == ERR) return; 
@@ -107,7 +107,7 @@ void input(Game *game) {
     }
 }
 
-// 更新游戏逻辑
+
 void update(Game *game) {
     Ball *ball = &game->ball;
 
