@@ -1,109 +1,180 @@
 #include <locale.h>
 #include <ncurses.h>
 #include <unistd.h>
+#include "color.h"
 
 #define WIDTH 60
 #define HEIGHT 25
 #define PADDLE_HEIGHT 6
+#define PLAYER_COUNT 2
 
-int ballX, ballY;
-int ballDirX = 1, ballDirY = 1;
-int leftPaddleY, rightPaddleY;
-int leftScore = 0, rightScore = 0;
+typedef struct {
+    int left;
+    int right;
+} Scoreboard;
 
-// 初始化游戏
-void setup() {
-    ballX = WIDTH / 2;
-    ballY = HEIGHT / 2;
-    leftPaddleY = HEIGHT / 2 - PADDLE_HEIGHT / 2;
-    rightPaddleY = HEIGHT / 2 - PADDLE_HEIGHT / 2;
+typedef enum {
+    UP = 0b01,
+    DOWN = 0b00,
+    LEFT = 0b10,
+    RIGHT = 0b00,
+} BallDir;
+
+typedef struct {
+    int x;
+    int y;
+    int dir; // y | x,  e.g. UP | LEFT
+    int color;
+} Ball;
+
+typedef struct {
+    int paddle_x;
+    int paddle_y;
+    int paddle_len;
+    int left_btn;
+    int right_btn;
+    int team;
+    int color;
+} Player;
+
+typedef struct {
+    int width;
+    int height;
+    int player_cnt;
+    Player* players;
+    Ball ball;
+    Scoreboard scb;
+} Game;
+
+
+void setup(Game *game) {
+    game->ball.x = game->width/2;
+    game->ball.y = game->height/2;
+    game->ball.dir = UP | LEFT;
+    for (int i=0; i<game->player_cnt; i++)
+        game->players[i].paddle_y = game->height / 2 - game->players[i].paddle_len / 2;
 }
 
+void draw_screen_edge(int scr_width, int scr_height) {
+    for (int x = 0; x < scr_width + 2; x++)
+        mvprintw(0, x, "-");
+
+    for (int x = 0; x < scr_width + 2; x++) 
+        mvprintw(scr_height + 1, x, "-");
+}
+
+void draw_paddle(Player player) {
+    attron(COLOR_PAIR(player.color));
+    for (int i = 0; i < player.paddle_len; i++) 
+        mvprintw(player.paddle_y + i, player.paddle_x, "█");
+    attroff(COLOR_PAIR(player.color));
+}
+
+void draw_ball(Ball ball) {
+    attron(COLOR_PAIR(ball.color));
+    mvprintw(ball.y, ball.x, "██");
+    attroff(COLOR_PAIR(ball.color));
+}
+
+void draw_scoreboard(Scoreboard scb) {
+    mvprintw(HEIGHT + 2, 0, "Team 1: %d, Team 2: %d", scb.left, scb.right);
+}
 // 绘制屏幕
-void draw() {
+void draw(Game game) {
     clear();
+    draw_screen_edge(game.width, game.height);
 
-    for (int x = 0; x < WIDTH + 2; x++) mvprintw(0, x, "-");
-    for (int x = 0; x < WIDTH + 2; x++) mvprintw(HEIGHT + 1, x, "-");
-
-    for (int y = 0; y < PADDLE_HEIGHT; y++) mvprintw(leftPaddleY + y, 2, "█");
-
-    for (int y = 0; y < PADDLE_HEIGHT; y++) mvprintw(rightPaddleY + y, WIDTH - 1, "█");
-
-    mvprintw(ballY, ballX, "██");
-
-    mvprintw(HEIGHT + 2, 0, "Left Score: %d    Right Score: %d", leftScore, rightScore);
+    for (int i=0; i<game.player_cnt; i++)
+        draw_paddle(game.players[i]);
+    draw_ball(game.ball);
+    draw_scoreboard(game.scb);
 
     refresh();
 }
 
 // 处理用户输入
-void input() {
+void input(Game *game) {
     int ch = getch();
-    if (ch != ERR) {
-        // 使用按键标志来检测多个按键的状态
-        switch (ch) {
-            case 'w':
-                if (leftPaddleY > 1) leftPaddleY--;
-                break;
-            case 's':
-                if (leftPaddleY < HEIGHT - PADDLE_HEIGHT) leftPaddleY++;
-                break;
-            case KEY_UP:
-                if (rightPaddleY > 1) rightPaddleY--;
-                break;
-            case KEY_DOWN:
-                if (rightPaddleY < HEIGHT - PADDLE_HEIGHT) rightPaddleY++;
-                break;
+    if (ch == ERR) return; 
+
+    for (int p=0; p < game->player_cnt; p++) {
+        Player player = game->players[p];
+        if (ch==player.left_btn && player.paddle_y > 1) {
+            game->players[p].paddle_y--;
+        } else if (ch==player.right_btn && player.paddle_y < (game->height - player.paddle_len)) {
+            game->players[p].paddle_y++;
         }
     }
 }
 
 // 更新游戏逻辑
-void update() {
-    ballX += ballDirX;
-    ballY += ballDirY;
+void update(Game *game) {
+    Ball *ball = &game->ball;
 
-    // 碰撞检测：上边界和下边界
-    if (ballY <= 1 || ballY >= HEIGHT - 2) ballDirY = -ballDirY;
-
-    // 碰撞检测：左球拍
-    if (ballX == 3 && ballY >= leftPaddleY && ballY < leftPaddleY + PADDLE_HEIGHT) {
-        ballDirX = -ballDirX;
+    if (ball->dir & UP) { 
+        ball->y++;
+    } else {
+        ball->y--;
+    }
+    if (ball->dir & LEFT) {
+        ball->x++;
+    } else {
+        ball->x--;
     }
 
-    // 碰撞检测：右球拍
-    if (ballX == WIDTH - 3 && ballY >= rightPaddleY && ballY < rightPaddleY + PADDLE_HEIGHT) {
-        ballDirX = -ballDirX;
+    if (ball->y <= 1 || ball->y >= HEIGHT - 2) {
+        ball->dir ^= 0b01; // 反转方向
+    };        
+
+    for (int p=0; p<game->player_cnt; p++) {
+        Player player = game->players[p];
+        if (ball->x == player.paddle_x && ball->y >= player.paddle_y && ball->y < player.paddle_y + player.paddle_len) {
+            ball->dir ^= 0b10;
+        }
+    }
+    
+    if (ball->x <= 1) {
+        game->scb.right++;
+        goto refresh;
+    } else if (ball->y >= game->width) {
+        game->scb.left++;
+        goto refresh;
     }
 
-    // 小球越界处理
-    if (ballX <= 1) {
-        rightScore++;
+    return;
+
+    refresh:
         usleep(500000); // 等待一段时间
-        setup();
-    } else if (ballX >= WIDTH) {
-        leftScore++;
-        usleep(500000); // 等待一段时间
-        setup();
-    }
+        setup(game);
 }
 
 int main() {
     setlocale(LC_ALL, "");  // 支持 UTF-8
     initscr();
+    start_color(); // 开启颜色支持
+    init_color_pair();
     cbreak();
     noecho();
     curs_set(0);
     keypad(stdscr, TRUE);
     timeout(100);  // 非阻塞模式
 
-    setup();
+    Game game = {.player_cnt=PLAYER_COUNT, .width=WIDTH, .height=HEIGHT};
+    Ball ball = {.color = BALL_COLOR};
+    Scoreboard scb = {0, 0};
+    Player players[] = {
+        {.paddle_len=PADDLE_HEIGHT, .paddle_x=2, .left_btn='w', .right_btn='s', .team=1, .color=PADDLE_COLOR},
+        {.paddle_len=PADDLE_HEIGHT, .paddle_x=WIDTH-2, .left_btn=KEY_UP, .right_btn=KEY_DOWN, .team=0, .color=PADDLE_COLOR},
+    };
+    game.players = players;
+    game.scb = scb;
+    game.ball = ball;
+    setup(&game);
 
     while (1) {
-        draw();
-        input();  // 输入处理
-        update();  // 游戏逻辑更新
+        draw(game);
+        input(&game);  // 输入处理
+        update(&game);  // 游戏逻辑更新
         usleep(50000);
     }
 
