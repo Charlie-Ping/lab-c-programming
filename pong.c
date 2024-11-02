@@ -1,6 +1,12 @@
 #include <locale.h>
-#include <ncurses.h>
-#include <unistd.h>
+#ifdef _WIN32
+    #include <pdcurses.h>
+    #include <windows.h>
+    #define usleep(x) Sleep((x) / 1000) // Windows 下 usleep 模拟
+#else
+    #include <ncurses.h>
+    #include <unistd.h>
+#endif
 
 #define WIDTH 60
 #define HEIGHT 25
