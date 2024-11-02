@@ -1,12 +1,23 @@
 #include <locale.h>
-#include <ncurses.h>
-#include <unistd.h>
 #include "color.h"
+
+#ifdef _WIN32
+    #include <curses.h>
+    #include <windows.h>
+    #define usleep(x) Sleep((x) / 1000) // Windows 下 usleep 模拟
+    const wchar_t *wchar_blk = L"█";
+    #define print_blk(y, x) mvadd_wch(y, x, wchar_blk);
+#else // linux/darwin
+    #include <ncurses.h>
+    #include <unistd.h>
+    #define print_blk(y, x) mvprintw(y, x, "█");
+#endif
 
 #define WIDTH 60
 #define HEIGHT 25
 #define PADDLE_HEIGHT 6
 #define PLAYER_COUNT 2
+
 
 typedef struct {
     int left;
@@ -66,13 +77,14 @@ void draw_screen_edge(int scr_width, int scr_height) {
 void draw_paddle(Player player) {
     attron(COLOR_PAIR(player.color));
     for (int i = 0; i < player.paddle_len; i++) 
-        mvprintw(player.paddle_y + i, player.paddle_x, "█");
+        print_blk(player.paddle_y + i, player.paddle_x);
     attroff(COLOR_PAIR(player.color));
 }
 
 void draw_ball(Ball ball) {
     attron(COLOR_PAIR(ball.color));
-    mvprintw(ball.y, ball.x, "██");
+    print_blk(ball.y, ball.x);
+    print_blk(ball.y, ball.x+1);
     attroff(COLOR_PAIR(ball.color));
 }
 
@@ -136,7 +148,7 @@ void update(Game *game) {
     if (ball->x <= 1) {
         game->scb.right++;
         goto refresh;
-    } else if (ball->x >= game->width) {
+    } else if (ball->y >= game->width) {
         game->scb.left++;
         goto refresh;
     }
