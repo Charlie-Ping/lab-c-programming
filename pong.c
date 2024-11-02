@@ -3,9 +3,9 @@
     #include <curses.h>
     #include <windows.h>
     #define usleep(x) Sleep((x) / 1000) // Windows 下 usleep 模拟
-    const wchar_t *wchar_blk = L"█"
+    const wchar_t *wchar_blk = L"█";
     #define print_blk(y, x) mvadd_wch(y, x, wchar_blk);
-#else // linux使用的库, 在win中不会生效.
+#else // linux/darwin
     #include <ncurses.h>
     #include <unistd.h>
     #define print_blk(y, x) mvprintw(y, x, "█");
