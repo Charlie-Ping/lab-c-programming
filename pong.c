@@ -1,16 +1,20 @@
 #include <locale.h>
 #ifdef _WIN32
-    #include <pdcurses.h>
+    #include <curses.h>
     #include <windows.h>
     #define usleep(x) Sleep((x) / 1000) // Windows 下 usleep 模拟
-#else
+    const wchar_t *wchar_blk = L"█"
+    #define print_blk(y, x) mvadd_wch(y, x, wchar_blk);
+#else // linux使用的库, 在win中不会生效.
     #include <ncurses.h>
     #include <unistd.h>
+    #define print_blk(y, x) mvprintw(y, x, "█");
 #endif
 
 #define WIDTH 60
 #define HEIGHT 25
 #define PADDLE_HEIGHT 6
+
 
 int ballX, ballY;
 int ballDirX = 1, ballDirY = 1;
@@ -32,22 +36,21 @@ void draw() {
     for (int x = 0; x < WIDTH + 2; x++) mvprintw(0, x, "-");
     for (int x = 0; x < WIDTH + 2; x++) mvprintw(HEIGHT + 1, x, "-");
 
-    for (int y = 0; y < PADDLE_HEIGHT; y++) mvprintw(leftPaddleY + y, 2, "█");
+    for (int y = 0; y < PADDLE_HEIGHT; y++) print_blk(leftPaddleY + y, 2);
 
-    for (int y = 0; y < PADDLE_HEIGHT; y++) mvprintw(rightPaddleY + y, WIDTH - 1, "█");
+    for (int y = 0; y < PADDLE_HEIGHT; y++) print_blk(rightPaddleY + y, WIDTH - 1);
 
-    mvprintw(ballY, ballX, "██");
+    print_blk(ballY, ballX)
+    print_blk(ballY, ballX+1)
 
     mvprintw(HEIGHT + 2, 0, "Left Score: %d    Right Score: %d", leftScore, rightScore);
 
     refresh();
 }
 
-// 处理用户输入
 void input() {
     int ch = getch();
     if (ch != ERR) {
-        // 使用按键标志来检测多个按键的状态
         switch (ch) {
             case 'w':
                 if (leftPaddleY > 1) leftPaddleY--;
