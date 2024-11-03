@@ -4,7 +4,7 @@
 #ifdef _WIN32
     #include <curses.h>
     #include <windows.h>
-    #define usleep(x) Sleep((x) / 1000) // Windows 下 usleep 模拟
+    #define usleep(x) Sleep((x) / 1000)
     const wchar_t *wchar_blk = L"█";
     #define print_blk(y, x) mvadd_wch(y, x, wchar_blk);
 #else // linux/darwin
@@ -16,12 +16,11 @@
 #define WIDTH 60
 #define HEIGHT 25
 #define PADDLE_HEIGHT 6
-#define PLAYER_COUNT 2
-
+#define PLAYER_COUNT 4
+#define TEAM_COUNT 2
 
 typedef struct {
-    int left;
-    int right;
+    int scores[TEAM_COUNT];
 } Scoreboard;
 
 typedef enum {
@@ -32,9 +31,9 @@ typedef enum {
 } BallDir;
 
 typedef struct {
+    char dir; // y | x,  e.g. UP | LEFT
     int x;
     int y;
-    int dir; // y | x,  e.g. UP | LEFT
     int color;
 } Ball;
 
@@ -49,12 +48,12 @@ typedef struct {
 } Player;
 
 typedef struct {
+    Ball ball;
+    Scoreboard scb;
+    Player* players;
     int width;
     int height;
     int player_cnt;
-    Player* players;
-    Ball ball;
-    Scoreboard scb;
 } Game;
 
 
@@ -89,7 +88,8 @@ void draw_ball(Ball ball) {
 }
 
 void draw_scoreboard(Scoreboard scb) {
-    mvprintw(HEIGHT + 2, 0, "Team 1: %d, Team 2: %d", scb.left, scb.right);
+    for (int i=0; i<TEAM_COUNT; i++)
+        mvprintw(HEIGHT + 2, 10*i, "Team %d: %d", i, scb.scores[i]);
 }
 
 void draw(Game game) {
@@ -136,7 +136,7 @@ void update(Game *game) {
 
     if (ball->y <= 1 || ball->y >= HEIGHT - 2) {
         ball->dir ^= 0b01; // 反转方向
-    };        
+    };
 
     for (int p=0; p<game->player_cnt; p++) {
         Player player = game->players[p];
@@ -146,48 +146,50 @@ void update(Game *game) {
     }
     
     if (ball->x <= 1) {
-        game->scb.right++;
+        game->scb.scores[1]++;
         goto refresh;
-    } else if (ball->y >= game->width) {
-        game->scb.left++;
+    } else if (ball->x >= game->width) {
+        game->scb.scores[0]++;
         goto refresh;
     }
 
     return;
 
     refresh:
-        usleep(500000); // 等待一段时间
+        usleep(500000);
         setup(game);
 }
 
 int main() {
     setlocale(LC_ALL, "");  // 支持 UTF-8
-    initscr();
+    initscr(); // ncurses/pdcurses 初始化屏幕
+    cbreak(); // 按键不需要回车即可传给程序
+    noecho(); // 隐藏输入内容
+    curs_set(0); // 隐藏终端光标
+    keypad(stdscr, TRUE); // 允许捕获f12, 上下左右等特殊按键
+    timeout(1);  // 非阻塞模式
     start_color(); // 开启颜色支持
     init_color_pair();
-    cbreak();
-    noecho();
-    curs_set(0);
-    keypad(stdscr, TRUE);
-    timeout(100);  // 非阻塞模式
+    
 
-    Game game = {.player_cnt=PLAYER_COUNT, .width=WIDTH, .height=HEIGHT};
-    Ball ball = {.color = BALL_COLOR};
-    Scoreboard scb = {0, 0};
     Player players[] = {
         {.paddle_len=PADDLE_HEIGHT, .paddle_x=2, .left_btn='w', .right_btn='s', .team=1, .color=PADDLE_COLOR},
         {.paddle_len=PADDLE_HEIGHT, .paddle_x=WIDTH-2, .left_btn=KEY_UP, .right_btn=KEY_DOWN, .team=0, .color=PADDLE_COLOR},
+        {.paddle_len=PADDLE_HEIGHT, .paddle_x=WIDTH-5, .left_btn='i', .right_btn='k', .team=0, .color=PADDLE_COLOR},
+        {.paddle_len=PADDLE_HEIGHT, .paddle_x=6, .left_btn='t', .right_btn='g', .team=1, .color=PADDLE_COLOR},
     };
-    game.players = players;
-    game.scb = scb;
-    game.ball = ball;
+    Ball ball = {.color = BALL_COLOR};
+    Scoreboard scb = {0};
+    Game game = {.player_cnt=PLAYER_COUNT, .width=WIDTH, .height=HEIGHT, 
+                .players = players, .scb = scb, .ball = ball};
+
     setup(&game);
 
     while (1) {
         draw(game);
-        input(&game);  // 输入处理
-        update(&game);  // 游戏逻辑更新
-        usleep(50000);
+        input(&game);
+        update(&game);
+        usleep(80000);
     }
 
     endwin();
