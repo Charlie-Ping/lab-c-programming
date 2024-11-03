@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 #define BALL_COLOR 1
 #define PADDLE_COLOR 2
 
