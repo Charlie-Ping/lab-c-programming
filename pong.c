@@ -81,7 +81,7 @@ void draw_paddle(Player player) {
 }
 
 void draw_ball(Ball ball) {
-    attron(COLOR_PAIR(ball.color));
+    attron(COLOR_PAIR(ball.color)); 
     print_blk(ball.y, ball.x);
     print_blk(ball.y, ball.x+1);
     attroff(COLOR_PAIR(ball.color));
@@ -167,10 +167,9 @@ int main() {
     noecho(); // 隐藏输入内容
     curs_set(0); // 隐藏终端光标
     keypad(stdscr, TRUE); // 允许捕获f12, 上下左右等特殊按键
-    timeout(1);  // 非阻塞模式
+    timeout(1000);  // 非阻塞模式
     start_color(); // 开启颜色支持
     init_color_pair();
-    
 
     Player players[] = {
         {.paddle_len=PADDLE_HEIGHT, .paddle_x=2, .left_btn='w', .right_btn='s', .team=1, .color=PADDLE_COLOR},
